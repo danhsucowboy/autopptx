@@ -1,3 +1,4 @@
+import copy
 import pptx
 from pptx import Presentation
 from pptx.util import Cm, Pt
@@ -6,6 +7,19 @@ from pptx.dml.fill import FillFormat
 from lxml import etree
 from pptx.oxml.xmlchemy import OxmlElement
 from pptx.dml.color import RGBColor
+from pptx.enum.text import MSO_ANCHOR
+
+def duplicateSlide(new_slide, old_slide):
+    sp = new_slide.shapes.title.element
+    sp.getparent().remove(sp)
+    sp = new_slide.shapes.placeholders[1].element
+    sp.getparent().remove(sp)
+    for shp in old_slide.shapes:
+        el = shp.element
+        newel = copy.deepcopy(el)
+        new_slide.shapes._spTree.insert_element_before(newel, 'p:extLst')
+    
+    return new_slide
 
 def SubElement(parent, tagname, **kwargs):
         element = OxmlElement(tagname)
@@ -27,10 +41,11 @@ def _set_cell_border(cell, border_color='000000', border_width='12700'):
 
 if __name__ == "__main__":
     pptx_path = "D:/[7]研發簡報/週會/Test_Report.pptx"
+    image_path = "D:/[3]DeepLearning/[2]Model/[2]Keras/[2]CNN/model_V2.10.1/model_b2_e100_d03_1/"
     line_pt_space = Pt(10)
     add_weight = False
     draw_table = True
-    draw_plot = False
+    draw_plot = True
     loss_weight_p = str(0.2)
     loss_weight_n = str(0.8)
     prs = Presentation(pptx_path)
@@ -117,11 +132,42 @@ if __name__ == "__main__":
         shape = slide.shapes.add_table(4, 5, x, y, cx, cy)
         #shape.table.fill.background()
         table = shape.table
-        table.cell(0, 0).text = "TEST"
+
+        input_matrix = ([["model_b2_e100_d05_1","Loss", "Accuracy", "Sensitivity", "Specificity"],
+                        ["Training", "0", "0", "0", "0"],
+                        ["Validation", "0", "0", "0", "0"],
+                        ["Testing", "0", "0", "0", "0"]])
+
+        size_matrix = ([[12,12, 12, 12, 12],
+                        [12, 16, 16, 16, 16],
+                        [12, 16, 16, 16, 16],
+                        [12, 16, 16, 16, 16]])
+
+        table.columns[0].width = Cm(5.55)
 
         for (i,j) in [(i,j) for i in range(4) for j in range(5)]:
-            _set_cell_border(table.cell(i,j)) 
+            cell = table.cell(i,j)
+            cell.text = input_matrix[i][j]
+            cell.vertical_anchor = MSO_ANCHOR.MIDDLE
+            p = cell.text_frame.paragraphs[0]
+            p.alignment = PP_ALIGN.CENTER
+            p.font.size = Pt(size_matrix[i][j])
+            p.font.color.rgb = RGBColor(0,0,0)
+            _set_cell_border(cell) 
             table.cell(i,j).fill.background()
+    
+    if draw_plot:
+        second_slide = prs.slides.add_slide(slide.slide_layout)
+        second_slide = duplicateSlide(second_slide, slide)
+        current_shapes=second_slide.shapes
+        tf = current_shapes.placeholders[1].text_frame
+        p = tf.paragraphs[5]
+        p.clear()
+        sp = current_shapes[2].element
+        sp.getparent().remove(sp)
 
+        picture = current_shapes.add_picture(image_path+'model_b2_e100_d03_1_loss.png', Cm(4.33), Cm(6.35), Cm(16), Cm(12))
+
+        pass
     prs.save(pptx_path)
     print('Done')
